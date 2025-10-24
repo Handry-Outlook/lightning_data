@@ -2,23 +2,24 @@ name: Daily Lightning Data Scrape
 
 on:
   schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+    - cron: '0 0 * * *' # Runs daily at midnight UTC
+  workflow_dispatch: # Allows manual triggering
 
 jobs:
   scrape-and-update:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Explicitly grant write access
-
+      contents: write # Explicitly grant write access to repository contents
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # Updated to latest version
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main起き
+          fetch-depth: 0 # Fetch full history for proper merging
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5 # Updated to latest version
         with:
           python-version: '3.x'
 
@@ -37,10 +38,20 @@ jobs:
           echo "GITHUB_ACTOR: $GITHUB_ACTOR"
           echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
 
-      - name: Commit and push if there are changes
+      - name: Commit changes
         run: |
           git config --local user.name "GitHub Action"
           git config --local user.email "action@github.com"
           git add lightning_data_2025_autumn.json
-          git commit -m "Update lightning data - $(date -u)" || echo "No changes to commit"
-          git push
+          git commit -m "Update lightning data - $(date -u '+%a %b %d %T UTC %Y')" || echo "No changes to commit"
+
+      - name: Pull with merge to avoid conflicts
+        run: |
+          git pull origin main --no-rebase
+        continue-on-error: true # Continue even if merge fails (e.g., conflicts)
+
+      - name: Push changes
+        run: |
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
